@@ -1,52 +1,52 @@
 const { createApp, ref, onMounted } = Vue;
 
+// 1. CSVファイルのパスを定義
+const CSV_FILE_PATH = './data.csv'; 
+
 const app = createApp({
     setup() {
         // リアクティブなデータ
         const chartData = ref(null); // グラフのデータ
-        const fileName = ref('ファイルが選択されていません');
+        const loadStatus = ref('CSVファイルを読み込み中...'); // 読み込みステータス
         let salesChart = null; // Chart.jsインスタンスを保持する変数
 
         /**
-         * CSVファイルを読み込むイベントハンドラ
-         * @param {Event} event - input[type="file"]のchangeイベント
+         * サーバー上のCSVファイルを読み込む関数
          */
-        const handleFileUpload = (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                fileName.value = file.name;
-                
-                // Papa Parseを使ってファイルからデータをパース
-                // header: true にすると、最初の行をヘッダー（キー）としてオブジェクト配列に変換
-                Papa.parse(file, {
-                    header: true, 
-                    dynamicTyping: true, // 数値は数値型として解析
-                    complete: (results) => {
-                        console.log("CSVパース結果:", results.data);
-                        
-                        // グラフ表示用にデータを整形
-                        prepareChartData(results.data);
-                    },
-                    error: (error) => {
-                        console.error("CSVパースエラー:", error);
-                        alert("ファイルの読み込み中にエラーが発生しました。");
-                    }
-                });
-            }
+        const loadCsvData = () => {
+            loadStatus.value = 'CSVファイルを読み込み中...';
+            
+            // Papa Parseを使ってファイルのURLからデータをパース
+            Papa.parse(CSV_FILE_PATH, {
+                download: true, // URLからファイルをダウンロードしてパースすることを指定
+                header: true,   // 最初の行をヘッダー（キー）としてオブジェクト配列に変換
+                dynamicTyping: true, // 数値は数値型として解析
+                complete: (results) => {
+                    console.log("CSVパース結果:", results.data);
+                    loadStatus.value = 'データ読み込み完了。';
+                    
+                    // グラフ表示用にデータを整形
+                    prepareChartData(results.data);
+                },
+                error: (error) => {
+                    console.error("CSVパースエラー:", error);
+                    loadStatus.value = `データの読み込みに失敗しました: ${error.message}`;
+                    alert("ファイルの読み込み中にエラーが発生しました。Webサーバーがファイルを公開しているか確認してください。");
+                }
+            });
         };
 
         /**
-         * パースされたCSVデータからChart.js用のデータ構造を作成
-         * @param {Array<Object>} data - Papa Parseの結果データ
+         * パースされたCSVデータからChart.js用のデータ構造を作成 (変更なし)
          */
         const prepareChartData = (data) => {
+            // ... (前回のコードから変更なし) ...
             if (data.length === 0) {
                 chartData.value = null;
                 updateChart();
                 return;
             }
 
-            // CSVの列名が 'Month' と 'Sales' であることを想定
             const labels = data.map(row => row.Month);
             const sales = data.map(row => row.Sales);
 
@@ -56,40 +56,37 @@ const app = createApp({
                     {
                         label: '売上 (Sales)',
                         data: sales,
-                        backgroundColor: 'rgba(54, 162, 235, 0.5)', // 青色
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
                         borderColor: 'rgba(54, 162, 235, 1)',
                         borderWidth: 1
                     }
                 ]
             };
 
-            // グラフを更新または新規作成
             updateChart();
         };
 
         /**
-         * Chart.jsのグラフを更新または初期化
+         * Chart.jsのグラフを更新または初期化 (変更なし)
          */
         const updateChart = () => {
+            // ... (前回のコードから変更なし) ...
             const ctx = document.getElementById('salesChart');
 
             if (salesChart) {
-                // 既存のグラフがあれば更新
                 if (chartData.value) {
                     salesChart.data = chartData.value;
                     salesChart.update();
                 } else {
-                    // データがない場合はグラフを破棄
                     salesChart.destroy();
                     salesChart = null;
                 }
                 return;
             }
 
-            // グラフがまだ存在しない場合の初期化
             if (ctx && chartData.value) {
                 salesChart = new Chart(ctx, {
-                    type: 'bar', // 棒グラフ
+                    type: 'bar',
                     data: chartData.value,
                     options: {
                         responsive: true,
@@ -109,24 +106,21 @@ const app = createApp({
             }
         };
 
-        // マウント時にグラフコンポーネントを初期化 (初回描画用)
+        // マウント時に、ファイル読み込み関数をすぐに実行
         onMounted(() => {
-            updateChart();
+            loadCsvData(); 
         });
 
         // テンプレートに公開する変数とメソッド
         return {
-            fileName,
-            handleFileUpload
+            loadStatus
+            // handleFileUploadは不要になるため削除
         };
     },
-    // テンプレート部分
+    // テンプレート部分を更新
     template: `
-        <h2>📊 CSVファイルアップロードとグラフ表示</h2>
-        <div>
-            <input type="file" @change="handleFileUpload" accept=".csv" id="csvFile">
-            <p>選択中のファイル: <strong>{{ fileName }}</strong></p>
-        </div>
+        <h2>📊 サーバー上のデータ (data.csv) のグラフ表示</h2>
+        <p>ステータス: <strong>{{ loadStatus }}</strong></p>
         
         <div>
             <canvas id="salesChart"></canvas>
@@ -135,4 +129,3 @@ const app = createApp({
 });
 
 app.mount('#app');
-
